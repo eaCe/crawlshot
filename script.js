@@ -28,21 +28,21 @@ let shouldClose = true;
  * @returns {boolean}
  */
 const shouldSkip = (url) => {
-    const absoluteRegex = r = new RegExp('^(?:[a-z]+:)?//', 'i');
-    const emailRegex = r = new RegExp('^\\S+@\\S+$', 'i');
+    const absoluteRegex = new RegExp('^(?:[a-z]+:)?//', 'i');
+    const emailRegex = new RegExp('^\\S+@\\S+$', 'i');
 
     // if is obsolete...
-    if (obselete.includes(url)) {
+    if(obselete.includes(url)) {
         return true;
     }
 
     // if is mail...
-    if (emailRegex.test(url) || url.includes('mailto:')) {
-        return true;
-    }
-
-    // if is page anchor..
-    if (url.includes(url + '#') || url.includes(url + '/#')) {
+    // if is page anchor...
+    if (emailRegex.test(url) || url.includes('mailto:') ||
+        url.includes('#') || url.includes('/#' ||
+        url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))
+    ) {
+        obselete.push(url);
         return true;
     }
 
@@ -51,6 +51,7 @@ const shouldSkip = (url) => {
         return false;
     }
 
+    obselete.push(url);
     return true;
 };
 
@@ -113,7 +114,7 @@ const shouldSkip = (url) => {
                     }
                 } catch (e) {
                     console.error(`Encountered an error crawling ${url}. Aborting crawl.`);
-                    done()
+                    done();
                 }
 
                 done();
