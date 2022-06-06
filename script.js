@@ -148,7 +148,12 @@ const shouldSkip = (url) => {
         await fpage.goto(url);
         await wpage.goto(url);
 
-        const title = slugify(url.replace(URLToCrawl, ''));
+        let title = slugify(url.replace(URLToCrawl, ''));
+
+        if(title === '') {
+           title = await cpage.title();
+           title = slugify(title);
+        }
 
         await cpage.screenshot({path: timestamp + '/' + title + '-chrome.png', fullPage: true});
         await fpage.screenshot({path: timestamp + '/' + title + '-ff.png', fullPage: true});
@@ -159,6 +164,8 @@ const shouldSkip = (url) => {
         await wctxt.close();
     }
 
+    // get the front page...
+    await takeScreenshots(URLToCrawl);
     // start with the given url...
     await crawlUrl(URLToCrawl);
 
