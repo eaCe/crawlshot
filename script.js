@@ -2,6 +2,8 @@ const cliSpinners = require('cli-spinners');
 const logUpdate = require('log-update');
 const Crawler = require('crawler');
 const {chromium, firefox, webkit} = require('playwright');
+const fs = require('fs');
+const util = require('util');
 const args = process.argv.slice(2);
 const timestamp = +new Date();
 let interval;
@@ -11,11 +13,14 @@ if (!args.length) {
 }
 
 const url = new URL(args[0]);
+const cookieJar = args[1];
+
 if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error('Not a valid URL');
 }
 
-const URLToCrawl = args[0];
+const URLToCrawl = removeTrailingSlash(args[0]);
+const logger = new console.Console(fs.createWriteStream('./log.txt'));
 
 // already crawled url collection...
 let obselete = [];
@@ -87,41 +92,46 @@ const shouldSkip = (url) => {
     async function crawlUrl(url) {
         crawl.queue({
             uri: url,
-            callback: async function (err, res, done) {
-                if (err) throw err;
-                let $ = res.$;
-                try {
-                    let urls = $('a');
-                    let items = Object.keys(urls);
+            callback: async function (error, result, done) {
 
-                    for (let i = 0; i < items.length; i++) {
-                        const item = items[i];
+                if(error){
+                    console.log(error);
+                }
+                else{
+                    if (result.statusCode != 200) {
+                        logger.log(result.statusCode + ' : ' + url);
+                    }
+                    else {
+                        let $ = result.$;
+                        let urls = $('a');
+                        let items = Object.keys(urls);
 
-                        if (urls[item].type === 'tag') {
-                            let href = urls[item].attribs.href;
+                        for (let i = 0; i < items.length; i++) {
+                            const item = items[i];
 
-                            if (href && !shouldSkip(href)) {
-                                href = href.trim();
-                                obselete.push(href);
-                                url = href.startsWith(URLToCrawl) ? href : `${URLToCrawl}${href}`;
+                            if (urls[item].type === 'tag') {
+                                let href = urls[item].attribs.href;
 
-                                /**
-                                 * create browser contexts
-                                 */
-                                await takeScreenshots(url);
+                                if (href && !shouldSkip(href)) {
+                                    href = href.trim();
+                                    obselete.push(href);
+                                    url = href.startsWith(URLToCrawl) ? href : `${URLToCrawl}${href}`;
 
-                                setTimeout(async () => {
-                                    await crawlUrl(url);
-                                }, 100)
+                                    /**
+                                     * create browser contexts
+                                     */
+                                    await takeScreenshots(url);
+
+                                    setTimeout(async () => {
+                                        await crawlUrl(url);
+                                    }, 100)
+                                }
                             }
                         }
                     }
-                } catch (e) {
-                    console.error(`Encountered an error crawling ${url}. Aborting crawl.`);
+
                     done();
                 }
-
-                done();
             }
         });
     }
@@ -188,3 +198,7 @@ const shouldSkip = (url) => {
         }
     }
 })()
+
+function removeTrailingSlash(str) {
+    return str.replace(/\/+$/, '');
+}
