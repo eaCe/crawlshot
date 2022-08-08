@@ -1,0 +1,14 @@
+[
+  {
+    "name": "allow_cookies",
+    "value": "true",
+    "path": "/",
+    "domain": "domain.de"
+  },
+  {
+    "name": "cookie-opt-in-accepted",
+    "value": "true",
+    "path": "/",
+    "domain": "domain.de"
+  }
+]
