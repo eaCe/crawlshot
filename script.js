@@ -3,12 +3,10 @@ const logUpdate = require('log-update');
 const Crawler = require('crawler');
 const {chromium, firefox, webkit} = require('playwright');
 const fs = require('fs');
-const util = require('util');
 const args = process.argv.slice(2);
 const timestamp = +new Date();
 let interval;
 let cookies = null;
-let debug = 0;
 
 if (!args.length) {
     throw new Error('URL missing');
@@ -122,13 +120,6 @@ const shouldSkip = (url) => {
 
                         for (let i = 0; i < items.length; i++) {
                             const item = items[i];
-                            debug += 1;
-
-                            if (debug > 5) {
-                                done();
-                                await closeBrowser();
-                                break;
-                            }
 
                             if (urls[item].type === 'tag') {
                                 let href = urls[item].attribs.href;
