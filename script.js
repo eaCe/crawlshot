@@ -182,9 +182,15 @@ const shouldSkip = (url) => {
         await wpage.goto(url, {"waitUntil": "networkidle0"});
 
         // trigger lazy loading...
-        await cpage.evaluate(() => lazy.loadAll());
-        await fpage.evaluate(() => lazy.loadAll());
-        await wpage.evaluate(() => lazy.loadAll());
+        await cpage.evaluate(() => {
+            if (typeof lazy !== "undefined") lazy.loadAll()
+        });
+        await fpage.evaluate(() => {
+            if (typeof lazy !== "undefined") lazy.loadAll()
+        });
+        await wpage.evaluate(() => {
+            if (typeof lazy !== "undefined") lazy.loadAll()
+        });
 
         await cpage.waitForTimeout(500);
         await fpage.waitForTimeout(500);
