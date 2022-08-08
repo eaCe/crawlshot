@@ -32,7 +32,7 @@ const shouldSkip = (url) => {
     const emailRegex = new RegExp('^\\S+@\\S+$', 'i');
 
     // if is obsolete...
-    if(obselete.includes(url)) {
+    if (obselete.includes(url)) {
         return true;
     }
 
@@ -40,8 +40,7 @@ const shouldSkip = (url) => {
     // if is page anchor...
     if (emailRegex.test(url) || url.includes('mailto:') ||
         url.includes('#') || url.includes('/#' ||
-        url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))
-    ) {
+            url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))) {
         obselete.push(url);
         return true;
     }
@@ -49,6 +48,11 @@ const shouldSkip = (url) => {
     // if is relative...
     if (!absoluteRegex.test(url)) {
         return false;
+    }
+
+    // if is external...
+    if (!url.includes(URLToCrawl)) {
+        return true;
     }
 
     obselete.push(url);
@@ -150,9 +154,9 @@ const shouldSkip = (url) => {
 
         let title = slugify(url.replace(URLToCrawl, ''));
 
-        if(title === '') {
-           title = await cpage.title();
-           title = slugify(title);
+        if (title === '') {
+            title = await cpage.title();
+            title = slugify(title);
         }
 
         await cpage.screenshot({path: timestamp + '/' + title + '-chrome.png', fullPage: true});
