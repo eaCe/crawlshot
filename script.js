@@ -7,6 +7,8 @@ const util = require('util');
 const args = process.argv.slice(2);
 const timestamp = +new Date();
 let interval;
+let cookies = null;
+let debug = 0;
 
 if (!args.length) {
     throw new Error('URL missing');
@@ -19,11 +21,15 @@ if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error('Not a valid URL');
 }
 
+if (typeof cookieJar !== 'undefined') {
+    cookies = JSON.parse(fs.readFileSync(cookieJar));
+}
+
 const URLToCrawl = removeTrailingSlash(args[0]);
 const logger = new console.Console(fs.createWriteStream('./log.txt'));
 
 // already crawled url collection...
-let obselete = [];
+let obsolete = [];
 let shouldClose = true;
 
 /**
@@ -35,18 +41,28 @@ let shouldClose = true;
 const shouldSkip = (url) => {
     const absoluteRegex = new RegExp('^(?:[a-z]+:)?//', 'i');
     const emailRegex = new RegExp('^\\S+@\\S+$', 'i');
+    const extension = getExtension(url);
 
     // if is obsolete...
-    if (obselete.includes(url)) {
+    if (obsolete.includes(url)) {
         return true;
     }
 
     // if is mail...
+    // if is phone...
     // if is page anchor...
-    if (emailRegex.test(url) || url.includes('mailto:') ||
+    if (emailRegex.test(url) ||
+        url.includes('mailto:') ||
+        url.includes('tel:') ||
         url.includes('#') || url.includes('/#' ||
             url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))) {
-        obselete.push(url);
+        obsolete.push(url);
+        return true;
+    }
+
+    // if is a file...
+    if (extension !== 'html' && extension !== 'php' && extension) {
+        obsolete.push(url);
         return true;
     }
 
@@ -60,8 +76,8 @@ const shouldSkip = (url) => {
         return true;
     }
 
-    obselete.push(url);
-    return true;
+    obsolete.push(url);
+    return false;
 };
 
 (async () => {
@@ -93,28 +109,34 @@ const shouldSkip = (url) => {
         crawl.queue({
             uri: url,
             callback: async function (error, result, done) {
-
-                if(error){
+                if (error) {
                     console.log(error);
-                }
-                else{
-                    if (result.statusCode != 200) {
+                } else {
+                    if (parseInt(result.statusCode) > 399) {
+                        console.error(result.statusCode + ' - ' + url);
                         logger.log(result.statusCode + ' : ' + url);
-                    }
-                    else {
+                    } else {
                         let $ = result.$;
                         let urls = $('a');
                         let items = Object.keys(urls);
 
                         for (let i = 0; i < items.length; i++) {
                             const item = items[i];
+                            debug += 1;
+
+                            if (debug > 5) {
+                                done();
+                                await closeBrowser();
+                                break;
+                            }
 
                             if (urls[item].type === 'tag') {
                                 let href = urls[item].attribs.href;
-
-                                if (href && !shouldSkip(href)) {
+                                if (href !== '' && !shouldSkip(href)) {
                                     href = href.trim();
-                                    obselete.push(href);
+                                    obsolete.push(href);
+
+
                                     url = href.startsWith(URLToCrawl) ? href : `${URLToCrawl}${href}`;
 
                                     /**
@@ -150,17 +172,32 @@ const shouldSkip = (url) => {
      * @returns {Promise<void>}
      */
     async function takeScreenshots(url) {
-        const cctxt = await c.newContext()
-        const fctxt = await f.newContext()
-        const wctxt = await w.newContext()
+        const cctxt = await c.newContext();
+        const fctxt = await f.newContext();
+        const wctxt = await w.newContext();
+
+        if (cookies) {
+            await cctxt.addCookies(cookies);
+            await fctxt.addCookies(cookies);
+            await wctxt.addCookies(cookies);
+        }
 
         const cpage = await cctxt.newPage();
         const fpage = await fctxt.newPage();
         const wpage = await wctxt.newPage();
 
-        await cpage.goto(url);
-        await fpage.goto(url);
-        await wpage.goto(url);
+        await cpage.goto(url, {"waitUntil": "networkidle0"});
+        await fpage.goto(url, {"waitUntil": "networkidle0"});
+        await wpage.goto(url, {"waitUntil": "networkidle0"});
+
+        // trigger lazy loading...
+        await cpage.evaluate(() => lazy.loadAll());
+        await fpage.evaluate(() => lazy.loadAll());
+        await wpage.evaluate(() => lazy.loadAll());
+
+        await cpage.waitForTimeout(500);
+        await fpage.waitForTimeout(500);
+        await wpage.waitForTimeout(500);
 
         let title = slugify(url.replace(URLToCrawl, ''));
 
@@ -201,4 +238,15 @@ const shouldSkip = (url) => {
 
 function removeTrailingSlash(str) {
     return str.replace(/\/+$/, '');
+}
+
+function getExtension(url) {
+    const extStart = url.indexOf('.', url.lastIndexOf('/') + 1);
+
+    if (extStart == -1) {
+        return false;
+    }
+
+    const ext = url.substr(extStart + 1), extEnd = ext.search(/$|[?#]/);
+    return ext.substring(0, extEnd);
 }
