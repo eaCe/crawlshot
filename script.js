@@ -53,7 +53,7 @@ const shouldSkip = (url) => {
         url.includes('mailto:') ||
         url.includes('tel:') ||
         url.includes('#') || url.includes('/#' ||
-            url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))) {
+        url.includes(':javascript') || url.includes('javascript:') || url.includes('javascript'))) {
         obsolete.push(url);
         return true;
     }
@@ -100,20 +100,22 @@ const shouldSkip = (url) => {
      * crawl the given url...
      * credits @Evyatar Meged - https://stackoverflow.com/a/50164565
      *
-     * @param url
+     * @param urlToCrawl
      * @returns {Promise<void>}
      */
-    async function crawlUrl(url) {
+    async function crawlUrl(urlToCrawl) {
         crawl.queue({
-            uri: url,
+            uri: urlToCrawl,
             callback: async function (error, result, done) {
-                if (error) {
+            if (error) {
                     console.log(error);
-                } else {
+                }
+                else {
                     if (parseInt(result.statusCode) > 399) {
                         console.error(result.statusCode + ' - ' + url);
                         logger.log(result.statusCode + ' : ' + url);
-                    } else {
+                    }
+                    else {
                         let $ = result.$;
                         let urls = $('a');
                         let items = Object.keys(urls);
@@ -127,8 +129,7 @@ const shouldSkip = (url) => {
                                     href = href.trim();
                                     obsolete.push(href);
 
-
-                                    url = href.startsWith(URLToCrawl) ? href : `${URLToCrawl}${href}`;
+                                    const url = new URL(href, urlToCrawl).href;
 
                                     /**
                                      * create browser contexts
