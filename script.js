@@ -178,9 +178,9 @@ const shouldSkip = (url) => {
         const fpage = await fctxt.newPage();
         const wpage = await wctxt.newPage();
 
-        await cpage.goto(url, {"waitUntil": "networkidle0"});
-        await fpage.goto(url, {"waitUntil": "networkidle0"});
-        await wpage.goto(url, {"waitUntil": "networkidle0"});
+        await cpage.goto(url, {timeout: 60000});
+        await fpage.goto(url, {timeout: 60000});
+        await wpage.goto(url, {timeout: 60000});
 
         // trigger lazy loading...
         await cpage.evaluate(() => {
