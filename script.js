@@ -134,7 +134,12 @@ const shouldSkip = (url) => {
                                     /**
                                      * create browser contexts
                                      */
-                                    await takeScreenshots(url);
+                                    try {
+                                        await takeScreenshots(url);
+                                    }
+                                    catch (error) {
+                                        console.error('script.js:146', error);
+                                    }
 
                                     setTimeout(async () => {
                                         await crawlUrl(url);
