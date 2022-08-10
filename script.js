@@ -1,7 +1,7 @@
 const cliSpinners = require('cli-spinners');
 const logUpdate = require('log-update');
 const Crawler = require('crawler');
-const {chromium, firefox, webkit} = require('playwright');
+const {chromium, firefox, webkit, devices} = require('playwright');
 const fs = require('fs');
 const args = process.argv.slice(2);
 const timestamp = +new Date();
@@ -29,6 +29,7 @@ const logger = new console.Console(fs.createWriteStream('./log.txt'));
 // already crawled url collection...
 let obsolete = [];
 let shouldClose = true;
+const start = Date.now();
 
 /**
  * skip url if certain conditions match
@@ -80,7 +81,9 @@ const shouldSkip = (url) => {
 
 (async () => {
     // initialize crawler
-    const crawl = new Crawler();
+    const crawl = new Crawler({
+        rateLimit: 1000
+    });
 
     console.log('Crawling pages, this could take several minutes or hours');
 
@@ -192,19 +195,30 @@ const shouldSkip = (url) => {
                 contexts[browserName].addCookies(cookies)
             ));
         }
-        
+
         await Promise.all(Object.keys(pages).map(browserName =>
-            pages[browserName].goto(url, {timeout: 60000})
+            pages[browserName].goto(url, {waitUntil: 'networkidle0', timeout: 60000})
         ));
 
         await Promise.all(Object.keys(pages).map(browserName => {
             pages[browserName].evaluate(() => {
-                if (typeof lazy !== "undefined") lazy.loadAll()
+                // trigger lazy loading if available
+                if (typeof lazy !== "undefined") lazy.loadAll();
+            });
+        }))
+
+        await Promise.all(Object.keys(pages).map(browserName => {
+            pages[browserName].evaluate(async () => {
+                // scroll down and up again to trigger waypoints
+                for (let i = 0; i < document.body.scrollHeight; i += 100) {
+                    window.scrollTo(0, i);
+                }
+                window.scrollTo(0, 0);
             });
         }))
 
         await Promise.all(Object.keys(pages).map(browserName =>
-            pages[browserName].waitForTimeout(500)
+            pages[browserName].waitForTimeout(800)
         ))
 
         let title = slugify(url.replace(URLToCrawl, ''));
@@ -217,6 +231,22 @@ const shouldSkip = (url) => {
         await Promise.all(Object.keys(pages).map(browserName =>
             pages[browserName].screenshot({path: timestamp + '/' + title + '-' + browserName + '.png', fullPage: true})
         ))
+
+        // await Promise.all(Object.keys(pages).map(browserName =>
+        //     pages[browserName].setViewportSize(devices['iPhone X'].viewport)
+        // ))
+        //
+        // await Promise.all(Object.keys(pages).map(browserName =>
+        //     pages[browserName].screenshot({path: timestamp + '/' + title + '-' + browserName + '-iphone.png', fullPage: true})
+        // ))
+        //
+        // await Promise.all(Object.keys(pages).map(browserName =>
+        //     pages[browserName].setViewportSize(devices['Galaxy Tab S4 landscape'].viewport)
+        // ))
+        //
+        // await Promise.all(Object.keys(pages).map(browserName =>
+        //     pages[browserName].screenshot({path: timestamp + '/' + title + '-' + browserName + '-galaxy.png', fullPage: true})
+        // ))
 
         await Promise.all(Object.keys(contexts).map(browserName =>
             contexts[browserName].close()
@@ -239,6 +269,8 @@ const shouldSkip = (url) => {
                 browsers[browserName].close()
             ))
 
+            const end = Date.now();
+            console.log(`Execution time: ${end - start} ms`);
             clearInterval(interval);
             shouldClose = false;
         }
@@ -250,12 +282,16 @@ function removeTrailingSlash(str) {
 }
 
 function getExtension(url) {
+    if (!url) {
+        return false;
+    }
+
     const extStart = url.indexOf('.', url.lastIndexOf('/') + 1);
 
     if (extStart == -1) {
         return false;
     }
 
-    const ext = url.substr(extStart + 1), extEnd = ext.search(/$|[?#]/);
+    const ext = url.substring(extStart + 1), extEnd = ext.search(/$|[?#]/);
     return ext.substring(0, extEnd);
 }
