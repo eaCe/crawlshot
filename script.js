@@ -91,10 +91,16 @@ const shouldSkip = (url) => {
         logUpdate(frames[i = ++i % frames.length]);
     }, cliSpinners.pong.interval);
 
+    const browserOptions = {
+        headless: true
+    };
+
     // launch different browser types
-    const c = await chromium.launch();
-    const f = await firefox.launch();
-    const w = await webkit.launch();
+    const browsers = {
+        'chromium': await chromium.launch(browserOptions),
+        'firefox': await firefox.launch(browserOptions),
+        'webkit': await webkit.launch(browserOptions)
+    }
 
     /**
      * crawl the given url...
@@ -169,53 +175,52 @@ const shouldSkip = (url) => {
      * @returns {Promise<void>}
      */
     async function takeScreenshots(url) {
-        const cctxt = await c.newContext();
-        const fctxt = await f.newContext();
-        const wctxt = await w.newContext();
-
-        if (cookies) {
-            await cctxt.addCookies(cookies);
-            await fctxt.addCookies(cookies);
-            await wctxt.addCookies(cookies);
+        const contexts = {
+            'chromium': await browsers['chromium'].newContext(),
+            'firefox': await browsers['firefox'].newContext(),
+            'webkit': await browsers['webkit'].newContext()
         }
 
-        const cpage = await cctxt.newPage();
-        const fpage = await fctxt.newPage();
-        const wpage = await wctxt.newPage();
+        const pages = {
+            'chromium': await contexts['chromium'].newPage(),
+            'firefox': await contexts['firefox'].newPage(),
+            'webkit': await contexts['webkit'].newPage()
+        }
 
-        await cpage.goto(url, {timeout: 60000});
-        await fpage.goto(url, {timeout: 60000});
-        await wpage.goto(url, {timeout: 60000});
+        if (cookies) {
+            await Promise.all(Object.keys(pages).map(browserName =>
+                pages[browserName].addCookies(cookies)
+            ));
+        }
 
-        // trigger lazy loading...
-        await cpage.evaluate(() => {
-            if (typeof lazy !== "undefined") lazy.loadAll()
-        });
-        await fpage.evaluate(() => {
-            if (typeof lazy !== "undefined") lazy.loadAll()
-        });
-        await wpage.evaluate(() => {
-            if (typeof lazy !== "undefined") lazy.loadAll()
-        });
+        await Promise.all(Object.keys(pages).map(browserName =>
+            pages[browserName].goto(url, {timeout: 60000})
+        ));
 
-        await cpage.waitForTimeout(500);
-        await fpage.waitForTimeout(500);
-        await wpage.waitForTimeout(500);
+        await Promise.all(Object.keys(pages).map(browserName => {
+            pages[browserName].evaluate(() => {
+                if (typeof lazy !== "undefined") lazy.loadAll()
+            });
+        }))
+
+        await Promise.all(Object.keys(pages).map(browserName =>
+            pages[browserName].waitForTimeout(500)
+        ))
 
         let title = slugify(url.replace(URLToCrawl, ''));
 
         if (title === '') {
-            title = await cpage.title();
+            title = await pages['chromium'].title();
             title = slugify(title);
         }
 
-        await cpage.screenshot({path: timestamp + '/' + title + '-chrome.png', fullPage: true});
-        await fpage.screenshot({path: timestamp + '/' + title + '-ff.png', fullPage: true});
-        await wpage.screenshot({path: timestamp + '/' + title + '-webkit.png', fullPage: true});
+        await Promise.all(Object.keys(pages).map(browserName =>
+            pages[browserName].screenshot({path: timestamp + '/' + title + '-' + browserName + '.png', fullPage: true})
+        ))
 
-        await cctxt.close();
-        await fctxt.close();
-        await wctxt.close();
+        await Promise.all(Object.keys(contexts).map(browserName =>
+            contexts[browserName].close()
+        ))
     }
 
     // get the front page...
@@ -230,9 +235,10 @@ const shouldSkip = (url) => {
      */
     async function closeBrowser() {
         if (shouldClose) {
-            await c.close();
-            await f.close();
-            await w.close();
+            await Promise.all(Object.keys(browsers).map(browserName =>
+                browsers[browserName].close()
+            ))
+
             clearInterval(interval);
             shouldClose = false;
         }
