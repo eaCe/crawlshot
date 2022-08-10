@@ -9,7 +9,7 @@
 **Screenshots erstellen:**
 *aktuell Chromium, Webkit und Firefox - Desktop*
 
-`yarn crawl http://domain.de` oder `npm crawl http://domain.de`
+`yarn crawl https://domain.de` oder `npm crawl https://domain.de`
 
 Mit Cookies...
-`yarn crawl http://domain.de cookies.json` oder `npm crawl http://domain.de cookies.json`
+`yarn crawl https://domain.de cookies.json` oder `npm crawl https://domain.de cookies.json`
