@@ -188,11 +188,11 @@ const shouldSkip = (url) => {
         }
 
         if (cookies) {
-            await Promise.all(Object.keys(pages).map(browserName =>
-                pages[browserName].addCookies(cookies)
+            await Promise.all(Object.keys(contexts).map(browserName =>
+                contexts[browserName].addCookies(cookies)
             ));
         }
-
+        
         await Promise.all(Object.keys(pages).map(browserName =>
             pages[browserName].goto(url, {timeout: 60000})
         ));
